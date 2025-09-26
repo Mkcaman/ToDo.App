@@ -1,0 +1,85 @@
+﻿@* Views/Shared/_Layout.cshtml *@
+@using Microsoft.AspNetCore.Identity
+@using ToDo.Domain
+@inject SignInManager<ApplicationUser> SignInManager
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - TodoApp</title>
+
+    <link rel="icon" href="~/assets/images/brand-logos/favicon.ico" type="image/x-icon" asp-append-version="true" />
+    <link rel="stylesheet" href="https://unpkg.com/cropperjs@2.0.1/dist/cropper.min.css">
+
+
+    <!-- Tema CSS -->
+    <link id="style" href="~/assets/libs/bootstrap/css/bootstrap.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/css/styles.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/css/icons.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/node-waves/waves.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/simplebar/simplebar.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/flatpickr/flatpickr.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/%40simonwep/pickr/themes/nano.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/choices.js/public/assets/styles/choices.min.css" rel="stylesheet" asp-append-version="true" />
+    <link href="~/assets/libs/jsvectormap/css/jsvectormap.min.css" rel="stylesheet" asp-append-version="true" />
+
+
+    @RenderSection("Styles", required: false)
+</head>
+<body class="bg-body">
+    <!-- Üst menü -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" asp-controller="Home" asp-action="Index">TodoApp</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div id="topnav" class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Index">Ana Sayfa</a></li>
+
+                    @if (SignInManager.IsSignedIn(User))
+                    {
+                        <li class="nav-item"><a class="nav-link" asp-controller="Tasks" asp-action="Index">Görevler</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Notifications" asp-action="Index">Bildirimler</a></li>
+                        <li class="nav-item"><a class="nav-link" asp-controller="Profile" asp-action="Edit">Profil</a></li>
+                    }
+                </ul>
+
+                @await Html.PartialAsync("_LoginPartial")
+            </div>
+        </div>
+    </nav>
+
+    <main class="container my-4">
+        <partial name="_Alerts" />
+        @RenderBody()
+    </main>
+
+    <!-- Tema JS -->
+    <script src="~/assets/libs/choices.js/public/assets/scripts/choices.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/main.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/%40popperjs/core/umd/popper.min.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/bootstrap/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/defaultmenu.min.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/node-waves/waves.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/sticky.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/simplebar/simplebar.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/simplebar.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/%40simonwep/pickr/pickr.es5.min.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/apexcharts/apexcharts.min.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/jsvectormap/js/jsvectormap.min.js" asp-append-version="true"></script>
+    <script src="~/assets/libs/jsvectormap/maps/world-merc.js" asp-append-version="true"></script>
+    <script src="~/assets/js/us-merc-en.js" asp-append-version="true"></script>
+    <script src="~/assets/js/index.js" asp-append-version="true"></script>
+    <script src="~/assets/js/custom-switcher.min.js" asp-append-version="true"></script>
+    <script src="~/assets/js/custom.js" asp-append-version="true"></script>
+    <script src="https://unpkg.com/cropperjs@2.0.1/dist/cropper.min.js"></script>
+
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
+

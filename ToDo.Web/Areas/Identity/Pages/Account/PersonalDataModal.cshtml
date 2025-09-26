@@ -1,0 +1,31 @@
+﻿@page
+@model ToDo.Web.Areas.Identity.Pages.Account.Manage.PersonalDataModel
+@{
+    ViewData["Title"] = "Kişisel Veriler";
+}
+
+<h4 class="mb-3">Kişisel Veriler</h4>
+
+@if (!Model.HasAnyCustomData)
+{
+    <div class="alert alert-info">Henüz eklenmiş bir kişisel veri bulunmuyor.</div>
+}
+else
+{
+    <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Önizleme</strong></div>
+        <div class="card-body">
+            <ul class="mb-0">
+                @foreach (var kv in Model.PreviewData!)
+                {
+                    <li><strong>@kv.Key:</strong> @kv.Value</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <form method="post" asp-page-handler="Download">
+        @Html.AntiForgeryToken()
+        <button class="btn btn-outline-secondary">Verilerimi indir (JSON)</button>
+    </form>
+}

@@ -1,0 +1,297 @@
+﻿@model ToDo.Web.Models.AdminTaskCreateVm
+@{
+    ViewData["Title"] = "Görev Ver";
+    var users = (ViewBag.AssignableUsers as List<ToDo.Web.Models.UserPickVm>)
+                ?? (ViewBag.Users as List<ToDo.Web.Models.UserPickVm>) ?? new();
+}
+
+<h4 class="mb-3">Görev Ver</h4>
+
+<form asp-action="Create" method="post" enctype="multipart/form-data" id="taskCreateForm">
+    @Html.AntiForgeryToken()
+
+    <div class="row g-3">
+        <div class="col-12">
+            <label class="form-label">Görev Başlığı <span class="text-danger">*</span></label>
+            <input asp-for="Title" class="form-control" maxlength="200" required />
+            <span asp-validation-for="Title" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Görev Açıklaması <span class="text-danger">*</span></label>
+            <textarea asp-for="Description" class="form-control" rows="4" required></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="col-lg-6">
+            <label class="form-label">Görev Verilen Kişi <span class="text-danger">*</span></label>
+
+            @if (users.Count == 0)
+            {
+                <div class="alert alert-warning small">
+                    Atanabilir kullanıcı bulunamadı. (Admin olmayan kullanıcı görünmüyor.)
+                </div>
+            }
+
+            <select asp-for="OwnerId" class="form-select" id="OwnerId" required>
+                <option value="">— Seç —</option>
+                @foreach (var u in users)
+                {
+                    var avatar = string.IsNullOrWhiteSpace(u.AvatarUrl)
+                    ? Url.Content("~/assets/images/avatars/user.png")
+                    : Url.Content(u.AvatarUrl);
+
+                    <option value="@u.Id"
+                            data-avatar-url="@avatar"
+                            data-custom-properties='@Html.Raw("{\"avatar\":\"" + avatar + "\"}")'>
+                        @u.Display
+                    </option>
+                }
+            </select>
+            <span class="form-text">Listede isimlerin yanında profil fotoğrafları gösterilir.</span>
+            <span asp-validation-for="OwnerId" class="text-danger"></span>
+        </div>
+
+        <div class="col-lg-6">
+            <label class="form-label">Son Tarih <span class="text-danger">*</span></label>
+            <input asp-for="DueAtUtc" type="text" class="form-control" id="DueAtUtc" required />
+            <span class="form-text">Varsayılan: yarın 00:00. Daha erken seçilemez.</span>
+            <span asp-validation-for="DueAtUtc" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label d-flex align-items-center">
+                Öncelik Puanı (0–100)
+                <span class="ms-2 badge bg-light text-dark" id="priorityBadge">@Model.PriorityScore</span>
+            </label>
+
+            <input asp-for="PriorityScore" type="range" min="0" max="100" step="1"
+                   class="form-range priority-range" id="PriorityScore" />
+
+            <div class="d-flex justify-content-between small text-muted mt-n2 mb-2">
+                <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+            </div>
+            <span asp-validation-for="PriorityScore" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Görevle Alakalı Dosyalar (isteğe bağlı)</label>
+            <input asp-for="Attachments" id="Attachments" type="file" class="form-control"
+                   accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg,.gif,.webp,.zip" multiple />
+            <span class="form-text">Birden fazla dosya seçebilirsin. Her dosyayı aşağıda isimlendirebilirsin.</span>
+
+            <div id="attachmentTitles" class="mt-2"></div>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary">Kaydet</button>
+            <a class="btn btn-outline-secondary" asp-action="Index">İptal</a>
+        </div>
+    </div>
+</form>
+
+@section Styles {
+    <style>
+        .choices__item .avatar, .choices__list--dropdown .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: .5rem;
+            border: 1px solid rgba(0,0,0,.08);
+            background: #fff;
+        }
+
+            .choices__item .avatar img, .choices__list--dropdown .avatar img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+        /* SLIDER – mevcut yapı korunuyor */
+        .priority-range {
+            height: .9rem;
+            border-radius: 999px;
+            width: 100%;
+        }
+
+            .priority-range::-webkit-slider-runnable-track {
+                height: .9rem;
+                border-radius: 999px;
+                background: linear-gradient(to right, #b6f2b6, #198754, #ffc107, #dc3545);
+            }
+
+            .priority-range:-moz-range-track {
+                height: .9rem;
+                border-radius: 999px;
+                background: linear-gradient(to right, #b6f2b6, #198754, #ffc107, #dc3545);
+            }
+
+            .priority-range::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                background: #fff;
+                border: 2px solid var(--bs-primary);
+                box-shadow: 0 0 0 4px rgba(13,110,253,.15);
+                cursor: pointer;
+                margin-top: -6px;
+            }
+
+            .priority-range:-moz-range-thumb {
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                background: #fff;
+                border: 2px solid var(--bs-primary);
+                box-shadow: 0 0 0 4px rgba(13,110,253,.15);
+                cursor: pointer;
+            }
+
+        .att-list {
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: .5rem;
+        }
+
+        .att-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+            padding: .5rem .75rem;
+            align-items: center;
+        }
+
+            .att-row + .att-row {
+                border-top: 1px dashed rgba(0,0,0,.08);
+            }
+
+        .att-file {
+            font-size: .9rem;
+            color: #6c757d;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @@media (max-width: 576px) {
+            .att-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="/assets/libs/flatpickr/flatpickr.min.js"></script>
+    <script src="/assets/libs/flatpickr/l10n/tr.js"></script>
+
+    <script>
+        // Son tarih: YEREL yarın 00:00 (24s, TR)
+        (function () {
+          const input = document.getElementById('DueAtUtc');
+          if (!input) return;
+          input.value = '';
+          const now = new Date();
+          const tomorrow00 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+
+          if (window.flatpickr) {
+            const fp = flatpickr(input, {
+              enableTime: true, time_24hr: true, minuteIncrement: 1, allowInput: true,
+              locale: (flatpickr.l10ns && flatpickr.l10ns.tr) ? flatpickr.l10ns.tr : 'tr',
+              dateFormat: "Y-m-d\\TH:i", altInput: true, altFormat: "d.m.Y H:i",
+              defaultDate: tomorrow00, minDate: tomorrow00
+            });
+            fp.setDate(tomorrow00, true);
+          } else {
+            input.type = "datetime-local";
+            const pad = n => String(n).padStart(2, '0');
+            const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            input.min = fmt(tomorrow00); input.value = fmt(tomorrow00);
+          }
+        })();
+
+        // Öncelik rozeti senkron
+        (function(){
+          const s=document.getElementById('PriorityScore'), b=document.getElementById('priorityBadge');
+          if(!s||!b) return; const sync=()=>b.textContent=s.value; s.addEventListener('input',sync); sync();
+        })();
+
+        // Choices avatar (aynı)
+        (function () {
+          const el = document.getElementById('OwnerId');
+          if (!el || !window.Choices) return;
+          const FALLBACK = '@Url.Content("~/assets/images/avatars/user.png")';
+          const avatarMap = new Map(Array.from(el.options).map(o => [o.value, o.dataset.avatarUrl || ""]));
+          const parseProps = p => { if (!p) return {}; if (typeof p === 'string') { try { return JSON.parse(p); } catch { return {}; } } return p; };
+
+          new Choices(el, {
+            searchPlaceholderValue: 'Kişi ara…', shouldSort: false,
+            callbackOnCreateTemplates: function (template) {
+              const itemTpl = function (classNames, data) {
+                const props  = parseProps(data.customProperties);
+                const viaMap = avatarMap.get(String(data.value)) || '';
+                const avatar = props.avatar || viaMap || FALLBACK;
+                return template(`
+                  <div class="${classNames.item} ${data.highlighted ? classNames.highlightedState : classNames.itemSelectable}"
+                       data-item data-id="${data.id}" data-value="${data.value}" ${data.active ? 'aria-selected="true"' : ''}>
+                    <span class="avatar"><img src="${avatar}" alt="" onerror="this.src='${FALLBACK}'"></span>
+                    <span>${data.label}</span>
+                  </div>`);
+              };
+              const choiceTpl = function (classNames, data) {
+                const props  = parseProps(data.customProperties);
+                const viaMap = avatarMap.get(String(data.value)) || '';
+                const avatar = props.avatar || viaMap || FALLBACK;
+                return template(`
+                  <div class="${classNames.item} ${classNames.itemChoice} ${data.disabled ? classNames.itemDisabled : classNames.itemSelectable}"
+                       data-choice data-id="${data.id}" data-value="${data.value}">
+                    <span class="avatar"><img src="${avatar}" alt="" onerror="this.src='${FALLBACK}'"></span>
+                    <span>${data.label}</span>
+                  </div>`);
+              };
+              return { item: itemTpl, choice: choiceTpl };
+            }
+          });
+        })();
+
+        // Çoklu dosya için başlık alanları (upload’u ETKİLEMEZ)
+        (function () {
+          const fileInput = document.getElementById('Attachments');
+          const holder = document.getElementById('attachmentTitles');
+          if (!fileInput || !holder) return;
+
+          // Güvenli tarafta kal: name ve multiple'ı zorla (bazı UI kütüphaneleri değiştirebiliyor)
+          fileInput.setAttribute('name', 'Attachments');
+          fileInput.multiple = true;
+          fileInput.disabled = false;
+
+          const base = (n)=>{ const i=n.lastIndexOf('.'); return i>0?n.substring(0,i):n; };
+
+          function render(files){
+            if(!files || !files.length){ holder.innerHTML=''; return; }
+            let html = '<div class="att-list">';
+            for(let i=0;i<files.length;i++){
+              const f = files[i], title = base(f.name);
+              html += `
+                <div class="att-row">
+                  <div class="att-file"><strong>Dosya:</strong> ${f.name}</div>
+                  <div class="att-title">
+                    <input name="AttachmentTitles[${i}]" class="form-control"
+                           value="${title.replace(/"/g,'&quot;')}" placeholder="Başlık (örn. ${title})">
+                  </div>
+                </div>`;
+            }
+            html += '</div>';
+            holder.innerHTML = html;
+          }
+
+          if (fileInput.files?.length) render(fileInput.files);
+          fileInput.addEventListener('change', ()=>render(fileInput.files));
+        })();
+    </script>
+}

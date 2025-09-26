@@ -1,0 +1,52 @@
+﻿@model ToDo.Web.Models.TaskPageVm
+@{
+    ViewData["Title"] = "Görev: " + Model.Title;
+    var dueLocal = Model.DueAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+}
+
+<h4 class="mb-3">@Model.Title</h4>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card card-body mb-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="badge bg-@(Model.IsDone ? "success" : (Model.IsOverdue ? "danger" : "warning"))">
+                    @(Model.IsDone ? "Tamamlandı" : (Model.IsOverdue ? "Gecikmiş" : "Aktif"))
+                </span>
+                <span class="badge bg-secondary">Öncelik: @Model.Priority</span>
+                <span class="text-muted">Sahip: @Model.OwnerDisplay</span>
+            </div>
+
+            <dl class="row mt-3 mb-0">
+                <dt class="col-sm-3">Son Tarih</dt>
+                <dd class="col-sm-9">@dueLocal <small class="text-muted">(@Model.RemainingText)</small></dd>
+
+                <dt class="col-sm-3">Açıklama</dt>
+                <dd class="col-sm-9">@Model.Description</dd>
+            </dl>
+        </div>
+
+        <div class="card card-body">
+            <h6 class="mb-3">Ekler</h6>
+            @if (Model.Attachments.Count == 0)
+            {
+                <div class="text-muted">Ek bulunmuyor.</div>
+            }
+            else
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var a in Model.Attachments)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                <strong>@a.FileTitle</strong>
+                                <small class="text-muted d-block">@a.Url</small>
+                            </span>
+                            <a class="btn btn-sm btn-outline-primary" href="@a.Url" target="_blank" rel="noopener">Görüntüle / İndir</a>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>

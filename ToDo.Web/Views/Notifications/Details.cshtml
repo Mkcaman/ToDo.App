@@ -1,0 +1,42 @@
+﻿@model ToDo.Web.Models.NotificationDetailsVm
+@{
+    ViewData["Title"] = "Bildirim Detayı";
+}
+
+<h4 class="mb-3">Bildirim Detayı</h4>
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between">
+            <div>
+                <h5 class="mb-1">@Model.Title</h5>
+                <div class="text-muted small">@Model.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+            </div>
+            <div>
+                @if (!Model.IsRead)
+                {
+                    <form asp-action="MarkRead" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button class="btn btn-sm btn-outline-success">Okundu işaretle</button>
+                    </form>
+                }
+                <a class="btn btn-sm btn-outline-secondary" asp-action="Index">Listeye dön</a>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Body))
+        {
+            <hr />
+            <div>@Model.Body</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Model.Url))
+        {
+            var fixedUrl = Model.Url.Replace("/Tasks/Details", "/Tasks/Page", StringComparison.OrdinalIgnoreCase);
+            <hr />
+            <a class="btn btn-primary" href="@fixedUrl" target="_blank" rel="noopener">İlgili sayfaya git</a>
+        }
+
+    </div>
+</div>

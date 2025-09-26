@@ -1,0 +1,59 @@
+﻿@model IEnumerable<ToDo.Web.Models.UserWithRolesVm>
+@{
+    ViewData["Title"] = "Kullanıcı Yönetimi";
+}
+
+<h2 class="mb-3">@ViewData["Title"]</h2>
+
+
+
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>E-posta</th>
+            <th>Ad</th>
+            <th>Soyad</th>
+            <th>Roller</th>
+            <th style="width:420px;">İşlemler</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            var hasAdmin = item.Roles?.Contains("Admin") == true;
+            var hasEmployee = item.Roles?.Contains("Employee") == true;
+            <tr>
+                <td>@item.Email</td>
+                <td>@item.FirstName</td>
+                <td>@item.LastName</td>
+                <td>@string.Join(", ", item.Roles ?? new List<string>())</td>
+                <td>
+                    <form asp-action="MakeAdmin" method="post" asp-antiforgery="true" class="d-inline">
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-primary" @(hasAdmin ? "disabled" : null)>Admin Yap</button>
+                    </form>
+
+                    <form asp-action="MakeEmployee" method="post" asp-antiforgery="true" class="d-inline ms-1">
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" @(hasEmployee ? "disabled" : null)>Employee Yap</button>
+                    </form>
+
+                    @if (item.Roles != null && item.Roles.Any())
+                    {
+                        foreach (var r in item.Roles)
+                        {
+                            <form asp-action="RemoveFromRole" method="post" asp-antiforgery="true"
+                                  class="d-inline ms-1"
+                                  onsubmit="return confirm('@($"{item.Email} kullanıcısını {r} rolünden kaldırmak istediğine emin misin?")');">
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <input type="hidden" name="role" value="@r" />
+                                <button type="submit" class="btn btn-sm btn-danger">Rolü Kaldır (@r)</button>
+                            </form>
+                        }
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+

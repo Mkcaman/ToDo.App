@@ -1,0 +1,53 @@
+﻿@{
+    ViewData["Title"] = "Erişim Engellendi";
+    var returnUrl = (Context?.Request?.Path.Value ?? "/") + (Context?.Request?.QueryString.Value ?? "");
+    bool isAuth = User?.Identity?.IsAuthenticated ?? false;
+}
+
+<div class="container py-5">
+    <div class="text-center">
+
+        <h1 class="display-6 mb-2">Erişim Engellendi (403)</h1>
+        <p class="lead mb-4">
+            Bu sayfaya erişim iznin yok. Eğer bunun hata olduğunu düşünüyorsan yöneticinle iletişime geçebilirsin.
+        </p>
+
+        @* Alert’ler *@
+
+        <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+            <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Geri Dön</button>
+            <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
+
+            @if (isAuth)
+            {
+                <a class="btn btn-outline-primary" asp-area="Identity" asp-page="/Account/Manage/Index">Profilim</a>
+                <form class="d-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="~/" method="post">
+                    <button type="submit" class="btn btn-danger">Hesaptan Çık</button>
+                </form>
+            }
+            else
+            {
+                <a class="btn btn-success"
+                   asp-area="Identity" asp-page="/Account/Login"
+                   asp-route-returnUrl="@returnUrl">Giriş Yap</a>
+                <a class="btn btn-outline-success"
+                   asp-area="Identity" asp-page="/Account/Register"
+                   asp-route-returnUrl="@returnUrl">Kayıt Ol</a>
+            }
+        </div>
+
+        <div class="mx-auto" style="max-width:680px;">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Neden bu hatayı görüyorum?</h5>
+                    <ul class="text-start small mb-0">
+                        <li>Bu sayfa belirli rol(ler) gerektiriyor olabilir (ör: <strong>Admin</strong>).</li>
+                        <li>Yanlış hesapla giriş yapmış olabilirsin; çıkış yapıp doğru hesapla tekrar dene.</li>
+                        <li>Yetki gerekiyorsa yöneticinden rol talep edebilirsin.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

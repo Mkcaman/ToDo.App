@@ -1,0 +1,151 @@
+﻿@model IEnumerable<ToDo.Web.Models.AdminTaskRowVm>
+
+@functions {
+    // 0–100 öncelik puanını okunur metne çevir
+    string PriorityText(int p)
+    {
+        return "%" + p;
+    }
+
+    // 0–100 puana göre Bootstrap rozet rengi
+    string PriorityBadgeClass(int p)
+    {
+        if (p >= 80) return "bg-danger";      // En Yüksek
+        if (p >= 60) return "bg-warning";     // Yüksek
+        if (p >= 40) return "bg-primary";     // Normal
+        if (p >= 20) return "bg-success";     // Düşük
+        if (p >= 0) return "bg-lightgreen";   // En Düşük
+        return "bg-light text-dark";
+    }
+
+    // Satır vurgusu: tamamlandı yeşil, geciken kırmızı
+    string RowClass(ToDo.Web.Models.AdminTaskRowVm m)
+        => m.IsDone ? "table-success" : (m.IsOverdue ? "table-danger" : "");
+
+    // 24 saatlik tarih-saat biçimi (dd.MM.yyyy HH:mm)
+    string F(DateTime dt)      => dt.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+    string F(DateTime? dt)     => dt.HasValue ? F(dt.Value) : "—";
+}
+
+@{
+    ViewData["Title"] = "Görev Takip Paneli";
+    var status = (string?)ViewBag.Status ?? "";
+    var q      = (string?)ViewBag.Q ?? "";
+}
+
+<h4 class="mb-3">Görev Takip Paneli</h4>
+
+<form class="row row-cols-lg-auto g-2 align-items-end mb-3" method="get">
+    <div class="col">
+        <label class="form-label">Durum</label>
+        <select name="status" class="form-select">
+            <option value="" selected="@(status == "")">Tümü</option>
+            <option value="active" selected="@(status == "active")">Aktif</option>
+            <option value="overdue" selected="@(status == "overdue")">Geciken</option>
+            <option value="done" selected="@(status == "done")">Tamamlandı</option>
+        </select>
+    </div>
+    <div class="col">
+        <label class="form-label">Ara</label>
+        <input name="q" class="form-control" value="@q" placeholder="Başlık / kullanıcı adı / e-posta" />
+    </div>
+    <div class="col">
+        <button class="btn btn-secondary">Filtrele</button>
+    </div>
+</form>
+
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Başlık</th>
+            <th>Kullanıcı</th>
+            <th>Verildi</th>
+            <th>Son Tarih</th>
+            <th>Kalan</th>
+            <th>Öncelik</th>
+            <th>Durum</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var m in Model)
+        {
+            <tr class="@RowClass(m)">
+                <td><a class=""
+                       asp-controller="Tasks" asp-action="Page" asp-route-id="@m.Id"
+                       target="_blank" rel="noopener">
+                       @m.Title
+                   </a>    
+               </td>
+                <td>
+                    <div>@m.OwnerName</div>
+                    <div class="text-muted small">@m.OwnerEmail</div>
+                </td>
+
+                <td>@F(m.AssignedAtUtc)</td>
+
+                <td>
+                    @F(m.DueAtUtc)
+                    @if (m.IsOverdue)
+                    {
+                        <span class="badge bg-danger ms-2">Süresi doldu</span>
+                    }
+                </td>
+
+                <td>@m.RemainingText</td>
+
+                <td>
+                    <span class="badge @PriorityBadgeClass(m.Priority)">
+                        @PriorityText(m.Priority)
+                    </span>
+                </td>
+
+                <td>
+                    @if (m.IsDone)
+                    {
+                        <span class="badge bg-success">Tamamlandı</span>
+                    }
+                    else if (m.IsOverdue)
+                    {
+                        <span class="badge bg-danger">Geciken</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">Aktif</span>
+                    }
+                </td>
+
+                <td class="text-end">
+                    <!-- GÖREV SAYFASINI AÇ -->
+                    <a class="btn btn-sm btn-primary me-1"
+                       asp-controller="Tasks" asp-action="Page" asp-route-id="@m.Id"
+                       target="_blank" rel="noopener">
+                        Aç
+                    </a>
+
+                    <!-- SİL -->
+                    <form asp-action="DeleteInline" method="post" class="d-inline"
+                          onsubmit="return confirm('Bu görevi silmek istediğinize emin misiniz?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@m.Id" />
+                        <input type="hidden" name="status" value="@(ViewBag.Status as string ?? "")" />
+                        <input type="hidden" name="q" value="@(ViewBag.Q as string ?? "")" />
+                        <button class="btn btn-sm btn-outline-danger">Sil</button>
+                    </form>
+                </td>
+            </tr>
+
+           
+
+        }
+    </tbody>
+</table>
+
+
+
+<style>
+
+    .bg-lightgreen {
+        background-color: #B0EB00;
+    }
+</style>
+

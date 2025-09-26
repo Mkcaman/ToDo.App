@@ -1,0 +1,113 @@
+﻿@model IEnumerable<ToDo.Web.Models.NotificationListItemVm>
+@{
+    ViewData["Title"] = "Bildirimler";
+    var filter = (ViewBag.Filter as string ?? "all").ToLowerInvariant();
+    string F(DateTime dt) => dt.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+}
+
+<h4 class="mb-3">Bildirimler</h4>
+
+<div class="row g-2 mb-3 align-items-end">
+    <div class="col-auto">
+        <form method="get" asp-action="Index" class="row row-cols-lg-auto g-2">
+            <div class="col">
+                <label class="form-label">Filtre</label>
+                <select name="filter" class="form-select">
+                    <option value="all" selected="@(filter == "all")">Tümü</option>
+                    <option value="unread" selected="@(filter == "unread")">Okunmamış</option>
+                    <option value="archived" selected="@(filter == "archived")">Arşiv</option>
+                </select>
+            </div>
+            <div class="col">
+                <button class="btn btn-secondary">Filtrele</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-auto ms-auto">
+        <form asp-action="MarkAllRead" asp-route-filter="@filter" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-outline-primary">Tümünü okundu yap</button>
+        </form>
+    </div>
+</div>
+
+@if (Model is null || !Model.Any())
+{
+    <div class="alert alert-light border">Gösterilecek bildirim yok.</div>
+}
+else
+{
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Başlık / Mesaj</th>
+                <th>Tarih</th>
+                <th style="width:1%"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var n in Model)
+            {
+                <tr class="@(n.IsRead ? "table-secondary" : "table-info")">
+                    <td>
+                        <div class="fw-semibold">
+                            <a asp-action="Details" asp-route-id="@n.Id">@n.Title</a>
+                            @if (!n.IsRead)
+                            {
+                                <span class="badge bg-primary ms-2">Yeni</span>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(n.Body))
+                        {
+                            <div class="text-muted small">@n.Body</div>
+                        }
+                    </td>
+
+                    <td class="text-nowrap">@F(n.CreatedAt)</td>
+
+                    <td class="text-nowrap">
+                        <div class="btn-group btn-group-sm">
+                            @if (n.IsRead)
+                            {
+                                <form asp-action="MarkUnread" asp-route-id="@n.Id" asp-route-filter="@filter" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-outline-primary">Okunmadı</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form asp-action="MarkRead" asp-route-id="@n.Id" asp-route-filter="@filter" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-outline-primary">Okundu</button>
+                                </form>
+                            }
+
+                            @if (filter == "archived")
+                            {
+                                <form asp-action="Unarchive" asp-route-id="@n.Id" asp-route-filter="@filter" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-outline-warning">Geri Al</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form asp-action="Archive" asp-route-id="@n.Id" asp-route-filter="@filter" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-outline-warning">Arşivle</button>
+                                </form>
+                            }
+
+                            <form asp-action="Delete" asp-route-id="@n.Id" asp-route-filter="@filter" method="post"
+                                  onsubmit="return confirm('Bildirim silinsin mi?');">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-outline-danger">Sil</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

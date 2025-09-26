@@ -1,0 +1,84 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using ToDo.Domain
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    ApplicationUser? u = null;
+    string displayName = "";
+    string avatar = Url.Content("~/img/default-avatar.png"); // varsayılan avatar
+
+    if (SignInManager.IsSignedIn(User))
+    {
+        u = await UserManager.GetUserAsync(User);
+        var first = u?.FirstName?.Trim();
+        var last = u?.LastName?.Trim();
+
+        displayName = (!string.IsNullOrWhiteSpace(first) || !string.IsNullOrWhiteSpace(last))
+            ? $"{first} {last}".Trim()
+            : (User.Identity?.Name ?? "Kullanıcı");
+
+        if (!string.IsNullOrWhiteSpace(u?.ProfilePhotoPath))
+            avatar = u!.ProfilePhotoPath!;
+    }
+}
+
+<ul class="navbar-nav ms-auto align-items-center">
+    @if (SignInManager.IsSignedIn(User))
+    {
+        @* Sadece Admin'e yönetim linki *@
+        @if (User.IsInRole("Admin"))
+        {
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center text-center" href="#" id="userMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span>Yönetim</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminMenu">
+                <li>
+                        <a class="dropdown-item" asp-controller="AdminUsers" asp-action="Index">Rolleri Düzenle</a>
+                </li>
+                 <li>
+                        <a class="dropdown-item" asp-controller="AdminTasks" asp-action="Index">Görev Paneli</a>
+                </li>
+                <li>
+                        <a class="dropdown-item" asp-controller="AdminTasks" asp-action="Create">Görev Ver</a>
+                </li>
+            </ul>
+            
+        </li>
+        }
+
+        @* Kullanıcı menüsü *@
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <img src="@avatar" alt="profil" class="rounded-circle me-2" style="width:32px;height:32px;object-fit:cover;">
+                <span>@displayName</span>
+                @if (User.IsInRole("Admin"))
+                {
+                    <span class="badge bg-warning text-dark ms-2">Admin</span>
+                }
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
+                <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">Profil</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                    <form asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="~/" method="post" class="px-3">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-link dropdown-item px-0">Çıkış</button>
+                    </form>
+                </li>
+            </ul>
+        </li>
+    }
+    else
+    {
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">Giriş</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Register">Kayıt Ol</a>
+        </li>
+    }
+</ul>
+
+

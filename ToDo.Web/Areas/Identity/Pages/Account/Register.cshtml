@@ -1,0 +1,127 @@
+﻿@page
+@model ToDo.Web.Areas.Identity.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "Kayıt Ol";
+}
+
+<section class="container py-4">
+    <h3 class="mb-3 fw-semibold">Kayıt Ol</h3>
+
+    <form method="post" class="row g-3" id="registerForm">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.FirstName" class="form-label fw-semibold text-dark">Ad</label>
+            <input asp-for="Input.FirstName" class="form-control form-control-lg" placeholder="Adınız" />
+            <span asp-validation-for="Input.FirstName" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.LastName" class="form-label fw-semibold text-dark">Soyad</label>
+            <input asp-for="Input.LastName" class="form-control form-control-lg" placeholder="Soyadınız" />
+            <span asp-validation-for="Input.LastName" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.Email" class="form-label fw-semibold text-dark">E-posta</label>
+            <input asp-for="Input.Email" class="form-control form-control-lg" placeholder="ornek@firma.com" autocomplete="email" />
+            <span asp-validation-for="Input.Email" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.PhoneNumber" class="form-label fw-semibold text-dark">Telefon</label>
+            <input asp-for="Input.PhoneNumber"
+                   id="RegisterPhone"
+                   class="form-control form-control-lg"
+                   inputmode="numeric"
+                   autocomplete="tel"
+                   placeholder="5XX XXX XX XX"
+                   maxlength="13" />
+            <span class="form-text">+90 yazmadan 10 hane, örn: <strong>5XX XXX XX XX</strong></span>
+            <span asp-validation-for="Input.PhoneNumber" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.Password" class="form-label fw-semibold text-dark">Şifre</label>
+            <input asp-for="Input.Password" type="password" class="form-control form-control-lg" autocomplete="new-password" />
+            <span asp-validation-for="Input.Password" class="text-danger small"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="Input.ConfirmPassword" class="form-label fw-semibold text-dark">Şifre (tekrar)</label>
+            <input asp-for="Input.ConfirmPassword" type="password" class="form-control form-control-lg" autocomplete="new-password" />
+            <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+        </div>
+
+        <div class="col-12 mt-2 d-flex gap-2">
+            <a class="btn btn-outline-primary" asp-controller="Home" asp-action="Index">Anasayfa</a>
+            <button class="btn btn-primary" type="submit">Kayıt Ol</button>
+            <a class="btn btn-secondary" asp-area="Identity" asp-page="/Account/Login">Giriş</a>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Register sayfasında telefon için 3-3-2-2 boşluklu maske (profil ile aynı mantık)
+        (function () {
+            const el = document.getElementById('RegisterPhone');
+            const form = document.getElementById('registerForm');
+            if (!el) return;
+
+            function normalizeTo10(d) {
+                d = (d || '').replace(/\D/g, '');
+                if (d.length > 10 && d.startsWith('90')) d = d.slice(2);
+                if (d.length > 10 && d.startsWith('0'))  d = d.slice(1);
+                return d.slice(0, 10);
+            }
+
+            function format3432(d) {
+                const len = d.length;
+                if (len <= 3) return d;
+                if (len <= 6) return d.slice(0,3) + ' ' + d.slice(3);
+                if (len <= 8) return d.slice(0,3) + ' ' + d.slice(3,6) + ' ' + d.slice(6);
+                return d.slice(0,3) + ' ' + d.slice(3,6) + ' ' + d.slice(6,8) + ' ' + d.slice(8,10);
+            }
+
+            function setCaretByDigits(target, digitsBeforeCaret) {
+                const v = target.value;
+                let count = 0, pos = 0;
+                while (pos < v.length && count < digitsBeforeCaret) {
+                    if (/\d/.test(v[pos])) count++;
+                    pos++;
+                }
+                target.setSelectionRange(pos, pos);
+            }
+
+            // İlk yüklemede normalize+format (validation sonrası geri dönüşte de çalışır)
+            el.value = format3432(normalizeTo10(el.value));
+
+            el.addEventListener('input', function () {
+                const before = el.value;
+                const caret = el.selectionStart || 0;
+                const digitsBefore = (before.slice(0, caret).match(/\d/g) || []).length;
+
+                const digits = normalizeTo10(before);
+                el.value = format3432(digits);
+                setCaretByDigits(el, digitsBefore);
+            });
+
+            el.addEventListener('blur', function () {
+                const digits = normalizeTo10(el.value);
+                el.value = format3432(digits);
+            });
+
+            // Submit öncesi: değeri “123 456 78 90” formatında normalize et (boşluklu)
+            form?.addEventListener('submit', function () {
+                const digits = normalizeTo10(el.value);
+                if (digits.length === 10) {
+                    el.value = format3432(digits);
+                }
+            });
+        })();
+    </script>
+}

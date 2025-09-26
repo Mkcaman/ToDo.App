@@ -1,0 +1,351 @@
+﻿@model ToDo.Domain.ApplicationUser
+@{
+    ViewData["Title"] = "Profilim";
+    var fallbackAvatar = Url.Content("~/assets/images/avatars/user.png");
+    var hasRealPhoto = !string.IsNullOrWhiteSpace(Model.ProfilePhotoPath);
+    var initialPhoto = hasRealPhoto ? Model.ProfilePhotoPath : fallbackAvatar;
+}
+
+<h4 class="mb-3">Profilim</h4>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+
+        <!-- GENEL BİLGİLER -->
+        <form asp-action="Edit" method="post" enctype="multipart/form-data" class="card card-body mb-3" id="profileEditForm">
+            @Html.AntiForgeryToken()
+            <h6 class="mb-3">Genel Bilgiler</h6>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Ad</label>
+                    <input name="firstName" value="@Model.FirstName" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Soyad</label>
+                    <input name="lastName" value="@Model.LastName" class="form-control" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Hakkında</label>
+                    <textarea name="aboutText" class="form-control" rows="4">@Model.AboutText</textarea>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Profil Fotoğrafı</label>
+                    <input type="file" name="profilePhoto" id="profilePhoto" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp,image/*" />
+
+                    <!-- Canlı önizleme -->
+                    <div class="mt-2 d-flex align-items-center gap-3">
+                        <img id="photoPreview"
+                             src="@initialPhoto"
+                             alt="Profil önizleme"
+                             onerror="this.src='@fallbackAvatar'"
+                             data-fallback="@fallbackAvatar"
+                             style="width:88px;height:88px;border-radius:50%;object-fit:cover;background:#f3f3f3"
+                             class="border" />
+
+                        <div class="d-flex flex-column gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditPhoto" @(hasRealPhoto ? null : (object)"disabled")>
+                                Fotoğrafı Düzenle
+                            </button>
+
+                            @if (hasRealPhoto)
+                            {
+                                <!-- Ayrı forma bağlanan buton -->
+                                <button type="submit" form="removePhotoForm" class="btn btn-sm btn-outline-danger">
+                                    Fotoğrafı Kaldır
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Hakkında Dokümanı</label>
+                    <input type="file" name="aboutDoc" class="form-control" accept=".pdf,.doc,.docx,.txt" />
+                    @if (!string.IsNullOrWhiteSpace(Model.AboutDocPath))
+                    {
+                        <div class="mt-2">
+                            <a class="btn btn-sm btn-outline-secondary" href="@Model.AboutDocPath" target="_blank" rel="noopener">Mevcut dosyayı aç</a>
+                        </div>
+                    }
+                </div>
+
+                <div class="col-12">
+                    <button class="btn btn-primary">Kaydet</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- TELEFON GÜNCELLE -->
+        <form asp-action="ChangePhone" method="post" class="card card-body mb-3" id="phoneForm">
+            @Html.AntiForgeryToken()
+            <h6 class="mb-3">Telefon Numarası</h6>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Yeni Telefon</label>
+                    <input name="newPhoneNumber"
+                           id="NewPhoneNumber"
+                           class="form-control"
+                           inputmode="numeric"
+                           autocomplete="tel"
+                           placeholder="5XX XXX XX XX"
+                           value="@(Model.PhoneNumber ?? "")" />
+                    <div class="form-text">Kaydederken numara “123 456 78 90” formatında tutulur.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Mevcut Şifre</label>
+                    <input type="password" name="currentPassword" class="form-control" required />
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-outline-primary">Telefonu Güncelle</button>
+                </div>
+            </div>
+        </form>
+
+        <!-- HESAP / OTURUM -->
+        <div class="card card-body">
+            <h6 class="mb-3">Hesap</h6>
+
+            <div class="d-flex flex-wrap gap-2">
+                <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-outline-secondary">Oturumu Kapat</button>
+                </form>
+
+                <form asp-action="SendPasswordReset" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-outline-info">Şifre Sıfırlama Bağlantısı Gönder</button>
+                </form>
+
+                <form asp-action="DeleteAccount" method="post" class="ms-auto d-inline" onsubmit="return confirm('Hesabınızı silmek üzeresiniz. Emin misiniz? Bu işlem geri alınamaz.');">
+                    @Html.AntiForgeryToken()
+                    <div class="input-group">
+                        <input type="password" name="currentPassword" class="form-control" placeholder="Şifreniz" required />
+                        <button class="btn btn-danger">Hesabı Sil</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Fotoğraf kaldırmak için ayrı (gizli) form -->
+<form id="removePhotoForm" asp-action="RemovePhoto" method="post" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Styles {
+    <!-- Cropper.js CSS (CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" />
+    <style>
+        .cropper-modal .modal-dialog {
+            max-width: 720px;
+        }
+
+        .cropper-wrap {
+            width: 100%;
+            min-height: 380px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .cropper-wrap img {
+                max-width: 100%;
+                display: block;
+            }
+    </style>
+}
+
+@section Scripts {
+    <!-- Cropper.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+
+    <!-- Telefon maskesi -->
+    <script>
+        (function () {
+            const el = document.getElementById('NewPhoneNumber');
+            if (!el) return;
+
+            function norm10(d) {
+                d = (d || '').replace(/\D/g, '');
+                if (d.startsWith('90')) d = d.slice(2);
+                if (d.startsWith('0')) d = d.slice(1);
+                return d.slice(0, 10);
+            }
+            function fmt(d) {
+                const L = d.length;
+                if (L <= 3) return d;
+                if (L <= 6) return d.slice(0,3)+' '+d.slice(3);
+                if (L <= 8) return d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6);
+                return d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6,8)+' '+d.slice(8,10);
+            }
+            function setCaretByDigits(target, n) {
+                const v = target.value;
+                let count = 0, pos = 0;
+                while (pos < v.length && count < n) { if (/\d/.test(v[pos])) count++; pos++; }
+                target.setSelectionRange(pos, pos);
+            }
+
+            el.value = fmt(norm10(el.value));
+            el.addEventListener('input', () => {
+                const before = el.value, caret = el.selectionStart || 0;
+                const digitsBefore = (before.slice(0, caret).match(/\d/g) || []).length;
+                el.value = fmt(norm10(before));
+                setCaretByDigits(el, digitsBefore);
+            });
+        })();
+    </script>
+
+    <!-- Fotoğraf önizleme + kırpma -->
+    <script>
+        (function () {
+            const input   = document.getElementById('profilePhoto');
+            const preview = document.getElementById('photoPreview');
+            const editBtn = document.getElementById('btnEditPhoto');
+            const FALLBACK = preview.dataset.fallback || '';
+
+            let cropper = null;
+            let lastObjectUrl = null; // sadece URL.createObjectURL ile oluşturulanları tut
+
+            // Başlangıçta: gerçek foto varsa düzenleme butonu aktif kalsın
+            if (preview.src && preview.src !== FALLBACK) {
+                editBtn.disabled = false;
+            }
+
+            // Bootstrap modal'ı runtime'da yarat
+            const modal = document.createElement('div');
+            modal.className = 'modal fade cropper-modal';
+            modal.id = 'cropperModal';
+            modal.tabIndex = -1;
+            modal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h6 class="modal-title">Profil Fotoğrafını Ayarla</h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="cropper-wrap"><img id="cropperImage" alt=""></div>
+                  <div class="d-flex flex-wrap gap-2 mt-3">
+                    <div class="btn-group">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="zoom-out">-</button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="zoom-in">+</button>
+                    </div>
+                    <div class="btn-group">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="move-left">←</button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="move-up">↑</button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="move-down">↓</button>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-act="move-right">→</button>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-act="reset">Sıfırla</button>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">İptal</button>
+                  <button type="button" class="btn btn-primary" id="btnApplyCrop">Kırp ve Uygula</button>
+                </div>
+              </div>
+            </div>`;
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal);
+            const cropImg = modal.querySelector('#cropperImage');
+
+            // Yeni dosya seçilince önizleme ve buton aktif
+            input.addEventListener('change', () => {
+                const f = input.files?.[0];
+                if (!f || !/^image\//.test(f.type)) {
+                    editBtn.disabled = (preview.src === FALLBACK);
+                    return;
+                }
+                if (lastObjectUrl) { URL.revokeObjectURL(lastObjectUrl); lastObjectUrl = null; }
+                lastObjectUrl = URL.createObjectURL(f);
+                preview.src = lastObjectUrl;
+                editBtn.disabled = false;
+                // İstersen otomatik aç:
+                // openCropper(lastObjectUrl);
+            });
+
+            // Düzenle: önce yeni dosya varsa onu, yoksa mevcut resmi aç
+            editBtn.addEventListener('click', async () => {
+                let srcToOpen = null;
+
+                const f = input.files?.[0];
+                if (f && /^image\//.test(f.type)) {
+                    if (lastObjectUrl) { URL.revokeObjectURL(lastObjectUrl); lastObjectUrl = null; }
+                    lastObjectUrl = URL.createObjectURL(f);
+                    srcToOpen = lastObjectUrl;
+                } else if (preview.src && preview.src !== FALLBACK) {
+                    // Mevcut foto (sunucudaki) ile aç
+                    srcToOpen = preview.src;
+                } else {
+                    return;
+                }
+                openCropper(srcToOpen);
+            });
+
+            function openCropper(src) {
+                cropImg.src = src;
+                modal.addEventListener('shown.bs.modal', initCropperOnce, { once: true });
+                bsModal.show();
+            }
+
+            function initCropperOnce() {
+                if (cropper) { cropper.destroy(); cropper = null; }
+                cropper = new Cropper(cropImg, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    dragMode: 'move',
+                    background: false,
+                    autoCropArea: 1,
+                });
+                modal.querySelectorAll('[data-act]').forEach(btn => {
+                    btn.onclick = () => {
+                        if (!cropper) return;
+                        switch (btn.getAttribute('data-act')) {
+                            case 'zoom-in':  cropper.zoom(0.1); break;
+                            case 'zoom-out': cropper.zoom(-0.1); break;
+                            case 'move-left':  cropper.move(-10, 0); break;
+                            case 'move-right': cropper.move(10, 0); break;
+                            case 'move-up':    cropper.move(0, -10); break;
+                            case 'move-down':  cropper.move(0, 10); break;
+                            case 'reset':    cropper.reset(); break;
+                        }
+                    };
+                });
+            }
+
+            // Kırp ve input'a yaz
+            modal.querySelector('#btnApplyCrop').addEventListener('click', () => {
+                if (!cropper) return;
+                const canvas = cropper.getCroppedCanvas({ width: 512, height: 512, imageSmoothingQuality: 'high' });
+                canvas.toBlob(blob => {
+                    if (!blob) return;
+
+                    // input.files'i kırpılmış dosya ile değiştir
+                    const dt = new DataTransfer();
+                    dt.items.add(new File([blob], 'avatar.png', { type: 'image/png' }));
+                    input.files = dt.files;
+
+                    // Küçük önizlemeyi güncelle
+                    if (lastObjectUrl) { URL.revokeObjectURL(lastObjectUrl); lastObjectUrl = null; }
+                    lastObjectUrl = URL.createObjectURL(blob);
+                    preview.src = lastObjectUrl;
+
+                    bsModal.hide();
+                    cropper.destroy(); cropper = null;
+                }, 'image/png', 0.95);
+            });
+
+            // Modal kapanınca temizle
+            modal.addEventListener('hidden.bs.modal', () => {
+                if (cropper) { cropper.destroy(); cropper = null; }
+            });
+        })();
+    </script>
+}

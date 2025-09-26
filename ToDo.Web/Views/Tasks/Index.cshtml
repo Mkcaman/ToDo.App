@@ -1,0 +1,136 @@
+﻿@model IEnumerable<ToDo.Domain.TodoItem>
+
+@{
+    ViewData["Title"] = "Görevlerim";
+    string filter = ViewBag.Filter as string ?? "";
+    string q = ViewBag.Q as string ?? "";
+    var todayLocal = DateTime.Now.Date; // "Bugün" etiketi için yerel tarih
+}
+
+@functions {
+    // 0–100 öncelik puanını okunur metne çevir
+    string PriorityText(int p)
+    {
+        return "%" + p;
+    }
+
+    // 0–100 puana göre Bootstrap rozet rengi
+    string PriorityBadgeClass(int p)
+    {
+        if (p >= 80) return "bg-danger";      // En Yüksek
+        if (p >= 60) return "bg-warning";     // Yüksek
+        if (p >= 40) return "bg-primary";     // Normal
+        if (p >= 20) return "bg-success";     // Düşük
+        if (p >= 0) return "bg-lightgreen";   // En Düşük
+        return "bg-light text-dark";
+    }
+
+    // Satır vurgusu
+    string RowClass(ToDo.Domain.TodoItem t)
+        => t.IsDone ? "table-success" : (t.IsOverdueNow ? "table-danger" : "");
+
+    // 24 saatlik tarih-saat gösterimi
+    string F(DateTime dt) => dt.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+}
+
+<h4 class="mb-3">Görevlerim</h4>
+
+<form class="row row-cols-lg-auto g-2 mb-3" method="get">
+    <div class="col">
+        <input class="form-control" type="search" name="q" value="@q" placeholder="Ara..." />
+    </div>
+    <div class="col">
+        <select class="form-select" name="filter">
+            <option value="" selected="@(filter == "")">Tümü</option>
+            <option value="active" selected="@(filter == "active")">Aktif</option>
+            <option value="overdue" selected="@(filter == "overdue")">Geciken</option>
+            <option value="today" selected="@(filter == "today")">Bugün</option>
+            <option value="done" selected="@(filter == "done")">Tamamlanan</option>
+        </select>
+    </div>
+    <div class="col">
+        <button class="btn btn-secondary">Filtrele</button>
+    </div>
+</form>
+
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Başlık</th>
+            <th>Son Tarih</th>
+            <th>Öncelik</th>
+            <th>Durum</th>
+            <th style="width:1%"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var t in Model)
+        {
+            <tr class="@RowClass(t)">
+                <td><a class=""
+                       asp-controller="Tasks" asp-action="Page" asp-route-id="@t.Id"
+                       target="_blank" rel="noopener">
+                       @t.Title
+                    </a>       
+                </td>
+
+                <td>
+                    @F(t.DueAt)
+                    @if (t.IsOverdueNow)
+                    {
+                        <span class="badge bg-danger ms-2">Süresi doldu</span>
+                    }
+                    else if (!t.IsDone && t.DueAt.ToLocalTime().Date == todayLocal)
+                    {
+                        <span class="badge bg-info ms-2">Bugün</span>
+                    }
+                </td>
+
+                <td>
+                    <span class="badge @PriorityBadgeClass(t.Priority)">
+                        @PriorityText(t.Priority)
+                    </span>
+                </td>
+
+                <td>
+                    @if (t.IsDone)
+                    {
+                        <span class="badge bg-success">Tamamlandı</span>
+                    }
+                    else if (t.IsOverdueNow)
+                    {
+                        <span class="badge bg-danger">Geciken</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">Aktif</span>
+                    }
+                </td>
+
+                <td class="text-nowrap">
+                    <a class="btn btn-sm btn-primary me-1"
+                       asp-controller="Tasks" asp-action="Page" asp-route-id="@t.Id"
+                       target="_blank" rel="noopener">
+                        Aç
+                    </a>
+                    <form asp-action="Toggle" asp-route-id="@t.Id" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button class="btn btn-sm btn-outline-success">
+                            @(t.IsDone ? "Geri Al" : "Tamamla")
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<style>
+
+.bg-lightgreen {
+        background-color: #B0EB00;
+    }
+</style>
+
+
