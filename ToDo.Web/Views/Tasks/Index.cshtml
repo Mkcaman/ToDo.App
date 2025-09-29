@@ -53,6 +53,20 @@
     </div>
 </form>
 
+<form method="get" class="d-inline">
+    <input type="hidden" name="q" value="@ViewBag.Q" />
+    <input type="hidden" name="filter" value="@ViewBag.Filter" />
+    <select name="sort" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()">
+        @foreach (var opt in (IEnumerable<dynamic>)ViewBag.SortOptions)
+        {
+            <option value="@opt.Value" selected="@(ViewBag.Sort == opt.Value ? "selected" : null)">
+                @opt.Text
+            </option>
+        }
+    </select>
+</form>
+
+
 <table class="table table-striped align-middle">
     <thead>
         <tr>

@@ -42,6 +42,8 @@ namespace ToDo.Domain
         [NotMapped]
         public bool IsOverdueNow => !IsDone && DueAt < DateTime.UtcNow;
         public ICollection<TaskAttachment> Attachments { get; set; } = new List<TaskAttachment>();
+        public ICollection<TaskComment> Comments { get; set; } = new List<TaskComment>(); // <-- yeni
+
 
     }
 }

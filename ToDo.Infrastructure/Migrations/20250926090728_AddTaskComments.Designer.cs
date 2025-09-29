@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ToDo.Infrastructure;
@@ -11,9 +12,11 @@ using ToDo.Infrastructure;
 namespace ToDo.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250926090728_AddTaskComments")]
+    partial class AddTaskComments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -152,51 +155,6 @@ namespace ToDo.Infrastructure.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("TaskComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("timezone('utc', now())");
-
-                    b.Property<string>("FileContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<long>("FileSizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<int>("TodoItemId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("TodoItemId", "CreatedAt");
-
-                    b.ToTable("TaskComments");
                 });
 
             modelBuilder.Entity("ToDo.Domain.ApplicationUser", b =>
@@ -394,7 +352,7 @@ namespace ToDo.Infrastructure.Migrations
                     b.ToTable("TaskAttachments");
                 });
 
-            modelBuilder.Entity("ToDo.Domain.TaskCommentAttachment", b =>
+            modelBuilder.Entity("ToDo.Domain.TaskComment", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -402,35 +360,30 @@ namespace ToDo.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("timezone('utc', now())");
 
-                    b.Property<string>("FileTitle")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("TaskCommentId")
+                    b.Property<int>("TodoItemId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Url")
+                    b.Property<string>("UserId")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TaskCommentId", "CreatedAt");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("TaskCommentAttachments");
+                    b.HasIndex("TodoItemId", "CreatedAt");
+
+                    b.ToTable("TaskComments");
                 });
 
             modelBuilder.Entity("ToDo.Domain.TodoItem", b =>
@@ -535,25 +488,6 @@ namespace ToDo.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("TaskComment", b =>
-                {
-                    b.HasOne("ToDo.Domain.TodoItem", "TodoItem")
-                        .WithMany("Comments")
-                        .HasForeignKey("TodoItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ToDo.Domain.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TodoItem");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("ToDo.Domain.Notification", b =>
                 {
                     b.HasOne("ToDo.Domain.TodoItem", "TodoItem")
@@ -583,15 +517,23 @@ namespace ToDo.Infrastructure.Migrations
                     b.Navigation("TodoItem");
                 });
 
-            modelBuilder.Entity("ToDo.Domain.TaskCommentAttachment", b =>
+            modelBuilder.Entity("ToDo.Domain.TaskComment", b =>
                 {
-                    b.HasOne("TaskComment", "TaskComment")
-                        .WithMany("Attachments")
-                        .HasForeignKey("TaskCommentId")
+                    b.HasOne("ToDo.Domain.TodoItem", "TodoItem")
+                        .WithMany("Comments")
+                        .HasForeignKey("TodoItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("TaskComment");
+                    b.HasOne("ToDo.Domain.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TodoItem");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ToDo.Domain.TodoItem", b =>
@@ -603,11 +545,6 @@ namespace ToDo.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("TaskComment", b =>
-                {
-                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("ToDo.Domain.TodoItem", b =>

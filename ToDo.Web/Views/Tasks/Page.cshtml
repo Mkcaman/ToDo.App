@@ -8,6 +8,7 @@
 
 <div class="row g-3">
     <div class="col-lg-8">
+        <!-- Görev bilgileri -->
         <div class="card card-body mb-3">
             <div class="d-flex align-items-center gap-3 flex-wrap">
                 <span class="badge bg-@(Model.IsDone ? "success" : (Model.IsOverdue ? "danger" : "warning"))">
@@ -26,7 +27,8 @@
             </dl>
         </div>
 
-        <div class="card card-body">
+        <!-- Ekler -->
+        <div class="card card-body mb-3">
             <h6 class="mb-3">Ekler</h6>
             @if (Model.Attachments.Count == 0)
             {
@@ -48,5 +50,170 @@
                 </ul>
             }
         </div>
+
+        <!-- Yorumlar -->
+        <div class="card card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0">Yorumlar</h6>
+                <span class="text-muted small">@Model.Comments.Count yorum</span>
+            </div>
+
+            @if (Model.Comments.Any())
+            {
+                <ul class="list-group mb-3">
+                    @foreach (var c in Model.Comments)
+                    {
+                        var key = c.Id;
+                        <li class="list-group-item">
+                            <div class="d-flex">
+                                <!-- Avatar -->
+                                <div class="me-3">
+                                    @if (!string.IsNullOrWhiteSpace(c.UserPhotoUrl))
+                                    {
+                                        <img src="@c.UserPhotoUrl" alt="avatar" class="rounded-circle" style="width:38px;height:38px;object-fit:cover;">
+                                    }
+                                    else
+                                    {
+                                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center"
+                                             style="width:38px;height:38px;">
+                                            @((c.UserDisplay ?? "?").FirstOrDefault())
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <div class="fw-bold">@c.UserDisplay</div>
+                                            <div class="small text-muted">@c.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                        </div>
+                                        <div class="ms-2">
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" onclick="toggleEdit('@key')">Düzenle</button>
+
+                                            <form asp-action="DeleteComment" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Yorumu silmek istediğinize emin misiniz?')">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@c.Id" />
+                                                <button class="btn btn-sm btn-outline-danger">Sil</button>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <!-- Görünüm modu -->
+                                    <div id="view-@key" class="mt-2">
+                                        <div>@c.Body</div>
+
+                                        @* Çoklu yorum ekleri *@
+                                        @if (c.Attachments != null && c.Attachments.Any())
+                                        {
+                                            <div class="mt-2 d-flex flex-wrap gap-3">
+                                                @foreach (var att in c.Attachments)
+                                                {
+                                                    if ((att.ContentType ?? "").StartsWith("image"))
+                                                    {
+                                                        <div class="text-center">
+                                                            <a href="@att.Url" target="_blank" rel="noopener">
+                                                                <img src="@att.Url" alt="comment-attachment" class="rounded"
+                                                                     style="max-height:160px; max-width:220px; object-fit:cover;">
+                                                            </a>
+                                                            @if (!string.IsNullOrWhiteSpace(att.Title))
+                                                            {
+                                                                <div class="small text-muted mt-1">@att.Title</div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a class="btn btn-sm btn-outline-primary" href="@att.Url" target="_blank" rel="noopener">
+                                                            @(string.IsNullOrWhiteSpace(att.Title) ? "Ek dosya" : att.Title)
+                                                        </a>
+                                                    }
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Düzenleme formu -->
+                                    <form id="edit-@key" asp-action="EditComment" method="post" class="mt-2" style="display:none">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@c.Id" />
+                                        <textarea name="body" class="form-control" rows="3">@c.Body</textarea>
+                                        <div class="mt-2 d-flex gap-2">
+                                            <button class="btn btn-sm btn-primary">Kaydet</button>
+                                            <button type="button" class="btn btn-sm btn-light" onclick="toggleEdit('@key')">Vazgeç</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted mb-3">Henüz yorum yok.</p>
+            }
+
+            <!-- Yorum ekleme -->
+            <form asp-action="AddComment" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="taskId" value="@Model.Id" />
+                <div class="mb-2">
+                    <textarea name="body" class="form-control" rows="3" placeholder="@@kullaniciadi şeklinde etiketleyebilirsin."></textarea>
+                </div>
+                <div class="mb-3">
+                    <input type="file" id="commentFiles" name="commentFiles" class="form-control" multiple
+                           accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar,.7z" />
+                    <small class="text-muted">Birden fazla dosya/foto seçebilirsin.</small>
+                </div>
+
+                <!-- Seçilen her dosya için başlık alanları -->
+                <div id="titlesWrap" class="mb-3"></div>
+
+                <button class="btn btn-primary">Gönder</button>
+            </form>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        function toggleEdit(key){
+            const viewEl = document.getElementById('view-' + key);
+            const editEl = document.getElementById('edit-' + key);
+            if(!viewEl || !editEl) return;
+            const showEdit = editEl.style.display === 'none';
+            editEl.style.display = showEdit ? 'block' : 'none';
+            viewEl.style.display = showEdit ? 'none' : 'block';
+        }
+
+        // Dosya başlık inputlarını dinamik üret
+        const filesInput = document.getElementById('commentFiles');
+        const titlesWrap = document.getElementById('titlesWrap');
+
+        filesInput?.addEventListener('change', () => {
+            titlesWrap.innerHTML = '';
+            const files = Array.from(filesInput.files || []);
+            if (files.length === 0) return;
+
+            files.forEach((f, idx) => {
+                const row = document.createElement('div');
+                row.className = 'input-group mt-2';
+
+                const span = document.createElement('span');
+                span.className = 'input-group-text';
+                span.textContent = f.name;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = 'commentFileTitles'; // Controller: List<string>? commentFileTitles
+                input.className = 'form-control';
+                input.placeholder = 'Dosya başlığı';
+
+                row.appendChild(span);
+                row.appendChild(input);
+                titlesWrap.appendChild(row);
+            });
+        });
+    </script>
+}

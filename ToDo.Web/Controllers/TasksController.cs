@@ -2,9 +2,11 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using ToDo.Domain;
 using ToDo.Infrastructure;
-using ToDo.Web.Models; // <-- Page view modeli için
+using ToDo.Web.Models; // TaskPageVm, TaskCommentVm, CommentAttachmentVm
 
 namespace ToDo.Web.Controllers;
 
@@ -23,7 +25,8 @@ public class TasksController : Controller
     }
 
     // ---------------- LIST ----------------
-    public async Task<IActionResult> Index(string? q, string? filter)
+    // sort: "due" | "priority" | "title_az" | "title_za"
+    public async Task<IActionResult> Index(string? q, string? filter, string? sort = "due")
     {
         var user = await _users.GetUserAsync(User);
         var userId = user!.Id;
@@ -51,15 +54,47 @@ public class TasksController : Controller
             _ => query
         };
 
-        var items = await query
-            .OrderBy(t => t.IsDone)
-            .ThenBy(t => t.DueAt)
-            .ThenBy(t => t.Id)
-            .AsNoTracking()
-            .ToListAsync();
+        // ---- SIRALAMA ----
+        Expression<Func<TodoItem, bool>> isOverdueExpr =
+            t => !t.IsDone && t.DueAt != null && t.DueAt < nowUtc;
+
+        query = (sort?.ToLowerInvariant()) switch
+        {
+            "priority" => query
+                .OrderBy(isOverdueExpr)
+                .ThenByDescending(t => t.Priority)
+                .ThenBy(t => t.Id),
+
+            "title_az" => query
+                .OrderBy(isOverdueExpr)
+                .ThenBy(t => t.Title)
+                .ThenBy(t => t.Id),
+
+            "title_za" => query
+                .OrderBy(isOverdueExpr)
+                .ThenByDescending(t => t.Title)
+                .ThenBy(t => t.Id),
+
+            _ => query // "due"
+                .OrderBy(isOverdueExpr)
+                .ThenBy(t => t.DueAt == null)
+                .ThenBy(t => t.DueAt)
+                .ThenBy(t => t.Id)
+        };
+
+        var items = await query.AsNoTracking().ToListAsync();
 
         ViewBag.Q = q;
         ViewBag.Filter = filter;
+        ViewBag.Sort = sort?.ToLowerInvariant() ?? "due";
+        ViewBag.SortOptions = new[]
+        {
+            new { Value = "due",       Text = "En yakın son tarih" },
+            new { Value = "priority",  Text = "En büyük öncelik"   },
+            new { Value = "title_az",  Text = "Başlık A'dan Z'ye"  },
+            new { Value = "title_za",  Text = "Başlık Z'den A'ya"  },
+        };
+
         return View(items);
     }
 
@@ -76,11 +111,10 @@ public class TasksController : Controller
 
         if (t is null) return NotFound();
 
-        // sadece sahibi veya admin görebilsin
         if (t.OwnerId != uid && !User.IsInRole("Admin"))
             return Forbid();
 
-        // Ekleri topla: önce çoklu TaskAttachments, yoksa tek dosya alanı
+        // Ekler
         var atts = new List<AttachmentVm>();
         try
         {
@@ -99,10 +133,7 @@ public class TasksController : Controller
                 })
                 .ToListAsync();
         }
-        catch
-        {
-            // TaskAttachment tablosu yoksa sessiz geç
-        }
+        catch { /* tablo yoksa sessiz geç */ }
 
         if (atts.Count == 0 && !string.IsNullOrWhiteSpace(t.AttachmentPath))
         {
@@ -115,6 +146,30 @@ public class TasksController : Controller
                 SizeBytes = 0
             });
         }
+
+        // ----- Yorumlar (+ çoklu ekler & başlık) -----
+        var comments = await _db.TaskComments
+            .Where(c => c.TodoItemId == t.Id)
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new TaskCommentVm
+            {
+                Id = c.Id,
+                UserDisplay = c.User.DisplayName ?? c.User.UserName,
+                UserPhotoUrl = c.User.ProfilePhotoPath, // avatar
+                Body = c.Body,
+                CreatedAt = c.CreatedAt,
+                Attachments = c.Attachments
+                    .Select(a => new CommentAttachmentVm
+                    {
+                        Id = a.Id,
+                        Url = a.Url,
+                        ContentType = a.ContentType,
+                        SizeBytes = a.SizeBytes,
+                        Title = a.FileTitle
+                    }).ToList()
+            })
+            .AsNoTracking()
+            .ToListAsync();
 
         var now = DateTime.UtcNow;
         var ts = t.DueAt - now;
@@ -130,11 +185,192 @@ public class TasksController : Controller
             OwnerDisplay = t.Owner?.DisplayName ?? "-",
             Attachments = atts,
             IsOverdue = !t.IsDone && t.DueAt <= now,
-            RemainingText = ts.TotalSeconds <= 0 ? "Süre doldu" : Format(ts)
+            RemainingText = ts.TotalSeconds <= 0 ? "Süre doldu" : Format(ts),
+            Comments = comments
         };
 
-        return View("Page", vm); // Views/Tasks/Page.cshtml
+        return View("Page", vm);
     }
+
+    // ----- Yorum ekleme (+ @mention & ÇOKLU dosya & başlık) -----
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddComment(int taskId, string body, List<IFormFile>? commentFiles, List<string>? commentFileTitles)
+    {
+        var me = await _users.GetUserAsync(User);
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            TempData["err"] = "Yorum boş olamaz.";
+            return RedirectToAction(nameof(Page), new { id = taskId });
+        }
+
+        var t = await _db.TodoItems.AsNoTracking().FirstOrDefaultAsync(x => x.Id == taskId);
+        if (t is null) return NotFound();
+
+        // yalnız sahibi veya Admin yorum eklesin (istersen gevşetebilirsin)
+        if (t.OwnerId != me!.Id && !User.IsInRole("Admin"))
+            return Forbid();
+
+        var trimmed = body.Trim();
+
+        var comment = new TaskComment
+        {
+            TodoItemId = t.Id,
+            UserId = me.Id,
+            Body = trimmed,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.TaskComments.Add(comment);
+        await _db.SaveChangesAsync(); // comment.Id için
+
+        if (commentFiles is { Count: > 0 })
+        {
+            for (int i = 0; i < commentFiles.Count; i++)
+            {
+                var file = commentFiles[i];
+                if (file is null || file.Length <= 0) continue;
+
+                var saved = await SaveCommentAttachmentAsync(me.Id, file);
+                if (saved == null) continue;
+
+                var (url, contentType, size) = saved.Value;
+
+                // aynı indeksli başlık
+                string? title = null;
+                if (commentFileTitles != null && i < commentFileTitles.Count)
+                    title = string.IsNullOrWhiteSpace(commentFileTitles[i]) ? null : commentFileTitles[i].Trim();
+
+                if (string.IsNullOrWhiteSpace(title))
+                    title = System.IO.Path.GetFileNameWithoutExtension(file.FileName);
+
+                _db.TaskCommentAttachments.Add(new TaskCommentAttachment
+                {
+                    TaskCommentId = comment.Id,
+                    Url = url,
+                    ContentType = contentType,
+                    SizeBytes = size,
+                    FileTitle = title,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            await _db.SaveChangesAsync();
+        }
+
+        await CreateMentionNotificationsAsync(t, me, trimmed);
+
+        TempData["ok"] = "Yorum eklendi.";
+        return RedirectToAction(nameof(Page), new { id = taskId });
+    }
+
+    // ----- Yorum düzenleme -----
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditComment(int id, string body)
+    {
+        var me = await _users.GetUserAsync(User);
+        var c = await _db.TaskComments
+            .Include(x => x.TodoItem)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (c is null) return NotFound();
+
+        var isOwnerOrAdmin = c.UserId == me!.Id || User.IsInRole("Admin");
+        if (!isOwnerOrAdmin) return Forbid();
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            TempData["err"] = "Yorum boş olamaz.";
+            return RedirectToAction(nameof(Page), new { id = c.TodoItemId });
+        }
+
+        c.Body = body.Trim();
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = "Yorum güncellendi.";
+        return RedirectToAction(nameof(Page), new { id = c.TodoItemId });
+    }
+
+    // ----- Yorum silme (eklerle birlikte) -----
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteComment(int id)
+    {
+        var me = await _users.GetUserAsync(User);
+        var c = await _db.TaskComments
+            .Include(x => x.Attachments)
+            .Include(x => x.TodoItem)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (c is null) return NotFound();
+
+        var isOwnerOrAdmin = c.UserId == me!.Id || User.IsInRole("Admin");
+        if (!isOwnerOrAdmin) return Forbid();
+
+        foreach (var att in c.Attachments)
+            DeletePhysicalFileIfExists(att.Url);
+
+        _db.TaskComments.Remove(c);
+        await _db.SaveChangesAsync();
+
+        TempData["ok"] = "Yorum silindi.";
+        return RedirectToAction(nameof(Page), new { id = c.TodoItemId });
+    }
+
+    // ----- Mention bildirim üretici -----
+    private async Task CreateMentionNotificationsAsync(TodoItem task, ApplicationUser author, string commentText)
+    {
+        // @kullaniciadi
+        var rx = new Regex(@"@([A-Za-z0-9._-]+)");
+        var matches = rx.Matches(commentText);
+        if (matches.Count == 0 && task.OwnerId == author.Id) return;
+
+        var usernames = matches.Select(m => m.Groups[1].Value)
+                               .Distinct(StringComparer.OrdinalIgnoreCase)
+                               .ToList();
+
+        var notified = new HashSet<string>();
+
+        foreach (var name in usernames)
+        {
+            var mentioned = await _users.FindByNameAsync(name);
+            if (mentioned == null) continue;
+            if (mentioned.Id == author.Id) continue;
+            if (!notified.Add(mentioned.Id)) continue;
+
+            var url = Url.Action("Page", "Tasks", new { id = task.Id });
+            _db.Notifications.Add(new Notification
+            {
+                UserId = mentioned.Id,
+                Title = "Görev yorumunda bahsedildiniz",
+                Message = $"{author.DisplayName ?? author.UserName} seni bir yorumda andı: \"{Truncate(commentText, 180)}\"",
+                Url = url,
+                TodoItemId = task.Id,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
+                IsArchived = false
+            });
+        }
+
+        // Görev sahibine bilgi (mention yoksa da), kendisi yazdıysa gönderme
+        if (!string.IsNullOrEmpty(task.OwnerId)
+            && task.OwnerId != author.Id
+            && !notified.Contains(task.OwnerId!))
+        {
+            var url = Url.Action("Page", "Tasks", new { id = task.Id });
+            _db.Notifications.Add(new Notification
+            {
+                UserId = task.OwnerId!,
+                Title = "Görevine yeni yorum",
+                Message = $"{author.DisplayName ?? author.UserName} görevine yorum yaptı: \"{Truncate(commentText, 180)}\"",
+                Url = url,
+                TodoItemId = task.Id,
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
+                IsArchived = false
+            });
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private static string Truncate(string s, int max)
+        => s.Length <= max ? s : s[..(max - 1)] + "…";
 
     private static string Format(TimeSpan ts)
     {
@@ -308,6 +544,38 @@ public class TasksController : Controller
         }
 
         return $"/uploads/tasks/{userId}/{name}";
+    }
+
+    // yorum eki kaydetme (tek dosya) — AddComment içinde döngü ile çağrılır
+    private async Task<(string url, string contentType, long size)?> SaveCommentAttachmentAsync(string userId, IFormFile file)
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png",".jpg",".jpeg",".gif",".webp",
+            ".pdf",".doc",".docx",".xls",".xlsx",".txt",
+            ".zip",".rar",".7z"
+        };
+
+        var ext = Path.GetExtension(file.FileName);
+        if (string.IsNullOrWhiteSpace(ext) || !allowed.Contains(ext))
+            return null;
+
+        var root = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var dir = Path.Combine(root, "uploads", "comments", userId);
+        Directory.CreateDirectory(dir);
+
+        var name = $"cmt_{Guid.NewGuid():N}{ext}";
+        var phys = Path.Combine(dir, name);
+
+        try
+        {
+            using var fs = new FileStream(phys, FileMode.Create);
+            await file.CopyToAsync(fs);
+        }
+        catch { return null; }
+
+        var url = $"/uploads/comments/{userId}/{name}";
+        return (url, file.ContentType, file.Length);
     }
 
     private void DeletePhysicalFileIfExists(string? webPath)
