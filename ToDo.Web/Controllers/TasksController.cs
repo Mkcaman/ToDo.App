@@ -313,41 +313,41 @@ public class TasksController : Controller
     }
 
     // ----- Mention bildirim üretici -----
+    // TasksController içinde mevcut metodu bununla değiştir
     private async Task CreateMentionNotificationsAsync(TodoItem task, ApplicationUser author, string commentText)
     {
-        // @kullaniciadi
-        var rx = new Regex(@"@([A-Za-z0-9._-]+)");
-        var matches = rx.Matches(commentText);
-        if (matches.Count == 0 && task.OwnerId == author.Id) return;
+        // Sadece @admin anahtarını kontrol et (case-insensitive)
+        var hasAdminKeyword = System.Text.RegularExpressions.Regex
+            .IsMatch(commentText ?? string.Empty, @"@admin\b", RegexOptions.IgnoreCase);
 
-        var usernames = matches.Select(m => m.Groups[1].Value)
-                               .Distinct(StringComparer.OrdinalIgnoreCase)
-                               .ToList();
+        var notified = new HashSet<string>(); // userId set
 
-        var notified = new HashSet<string>();
-
-        foreach (var name in usernames)
+        // 1) @admin ⇒ tüm adminlere bildir
+        if (hasAdminKeyword)
         {
-            var mentioned = await _users.FindByNameAsync(name);
-            if (mentioned == null) continue;
-            if (mentioned.Id == author.Id) continue;
-            if (!notified.Add(mentioned.Id)) continue;
-
-            var url = Url.Action("Page", "Tasks", new { id = task.Id });
-            _db.Notifications.Add(new Notification
+            var admins = await _users.GetUsersInRoleAsync("Admin");
+            foreach (var admin in admins)
             {
-                UserId = mentioned.Id,
-                Title = "Görev yorumunda bahsedildiniz",
-                Message = $"{author.DisplayName ?? author.UserName} seni bir yorumda andı: \"{Truncate(commentText, 180)}\"",
-                Url = url,
-                TodoItemId = task.Id,
-                CreatedAt = DateTime.UtcNow,
-                IsRead = false,
-                IsArchived = false
-            });
+                if (admin.Id == author.Id) continue;   // kendine bildirim gönderme
+                if (!notified.Add(admin.Id)) continue; // çokluluk/mükerrer kontrol
+
+                var url = Url.Action("Page", "Tasks", new { id = task.Id });
+                _db.Notifications.Add(new Notification
+                {
+                    UserId = admin.Id,
+                    Title = "Biri senden bahsetti.",
+                    Message = $"{author.DisplayName ?? author.UserName} bir yorumda senden bahsetti: \"{Truncate(commentText, 180)}\"",
+                    Url = url,
+                    TodoItemId = task.Id,
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false,
+                    IsArchived = false
+                });
+            }
         }
 
-        // Görev sahibine bilgi (mention yoksa da), kendisi yazdıysa gönderme
+        // 2) Görev sahibine her durumda bilgi (yazarı kendisi değilse)
+        //    → Özellikle admin yorum yazınca da tetiklenir.
         if (!string.IsNullOrEmpty(task.OwnerId)
             && task.OwnerId != author.Id
             && !notified.Contains(task.OwnerId!))
